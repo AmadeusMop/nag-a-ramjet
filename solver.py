@@ -29,16 +29,52 @@ class LetterCounter(dict):
         return ''.join(sorted(self.elements()))
 
     def __eq__(self, other):
-        return all(self[l] == other[l] for l in LetterCounter.LETTERS)
+        if type(other) == type(self):
+            return all(self[l] == other[l] for l in LetterCounter.LETTERS)
+        elif type(other) == Word:
+            return self == other.counter
+        else:
+            return NotImplemented
 
     def __ne__(self, other):
-        return any(self[l] != other[l] for l in LetterCounter.LETTERS)
+        if type(other) == type(self):
+            return any(self[l] != other[l] for l in LetterCounter.LETTERS)
+        elif type(other) == Word:
+            return self != other.counter
+        else:
+            return NotImplemented
 
     def __lt__(self, other):
-        return self <= other and self != other
+        if type(other) == type(self):
+            return self <= other and self != other
+        elif type(other) == Word:
+            return self < other.counter
+        else:
+            return NotImplemented
     
     def __le__(self, other):
-        return all(self[l] <= other[l] for l in LetterCounter.LETTERS)
+        if type(other) == type(self):
+            return all(self[l] <= other[l] for l in LetterCounter.LETTERS)
+        elif type(other) == Word:
+            return self <= other.counter
+        else:
+            return NotImplemented
+
+    def __gt__(self, other):
+        if type(other) == type(self):
+            return self > other and self != other
+        elif type(other) == Word:
+            return self > other.counter
+        else:
+            return NotImplemented
+    
+    def __ge__(self, other):
+        if type(other) == type(self):
+            return all(self[l] >= other[l] for l in LetterCounter.LETTERS)
+        elif type(other) == Word:
+            return self >= other.counter
+        else:
+            return NotImplemented
 
     def __add__(self, other):
         clone = self.clone()
@@ -61,15 +97,24 @@ class LetterCounter(dict):
             return NotImplemented
 
     def __sub__(self, other):
-        clone = self.clone()
-        clone -= other
-        return clone
+        if type(other) == LetterCounter:
+            clone = self.clone()
+            clone -= other
+            return clone
+        elif type(other) == Word:
+            return self - other.counter
+        else:
+            return NotImplemented
 
     def __isub__(self, other):
         if type(other) == LetterCounter:
             for l in other:
                 self[l] -= other[l]
+                if self[l] < 0:
+                    raise ValueError("Negative count occurred in __isub__() call. \nOffending parameters: " + str(self) +" (self), " + str(other) + " (other).")
             return self
+        elif type(other) == Word:
+            self -= other.counter
         elif type(other) == str:
             for l in other:
                 self[l] -= 1
@@ -95,20 +140,80 @@ class LetterCounter(dict):
             self[key] -= other[key]
 
 
-def get_words():
-    return ["nag a RAM 123", "Anagram", "nag", "a", "ram", "mAr "]
+class Word:
+    """A wrapper for a word containing its LetterCounter, etc."""
+    def __init__(self, word):
+        if type(word) != str:
+            raise TypeError(word)
+        self.word = str(word)
+        self.counter = LetterCounter(word.lower())
+        
+    def __repr__(self):
+        return self.word
 
-def get_letters(word):
-    counter = LetterCounter(word)
-    return counter
+    def __lt__(self, other):
+        if type(other) != type(self):
+            return NotImplemented
+        return self.counter < other.counter
+
+    def __le__(self, other):
+        if type(other) != type(self):
+            return NotImplemented
+        return self.counter <= other.counter
+
+    def __eq__(self, other):
+        if type(other) != type(self):
+            return NotImplemented
+        return self.counter == other.counter
+
+    def __ne__(self, other):
+        if type(other) != type(self):
+            return NotImplemented
+        return self.counter != other.counter
+
+def prune(words, letter_pool):
+    words = [word for word in words if word <= letter_pool]
+    return words
+
+def solve(words, letter_pool):
+    words = prune(words, letter_pool)
+    if not letter_pool:
+        return False
+    elif not words:
+        return None
+    else:
+        #print("words: ", list(words))
+        #print("letters: ", letter_pool)
+        witer = (w for w in words)
+        anags = []
+        for word in witer:
+            #print("word: ", word)
+            #print("words: ", list(words))
+            #print("letters: ", letter_pool)
+            s = solve(words, letter_pool - word)
+            #print("s: ", s)
+            if s:
+                #print("s is truthy")
+                anags += [[word] + l for l in s]
+                #print("anags: ", anags)
+            elif s is not None:
+                #print("s is not none")
+                anags += [[word]]
+                #print("anags: ", anags)
+        return anags
+    
+def get_words():
+    return ["nag a RAM 123", "Anagram", "nag", "a", "ram", "mAr ", "gram"]
 
 def main():
     words = get_words()
     letters_dict = dict();
 
     for word in words:
-        letters = get_letters(word)
+        letters = Word(word)
         letters_dict[word] = letters
+
+    words_list = letters_dict.values()
 
     print(letters_dict)
     print(letters_dict["Anagram"] == letters_dict["nag a RAM 123"])
@@ -117,5 +222,15 @@ def main():
     print(letters_dict["nag"] <= letters_dict["nag a RAM 123"])
     print(letters_dict["nag"] < letters_dict["nag a RAM 123"])
     print(letters_dict["Anagram"] <= letters_dict["nag"])
+
+    print(list(prune(words_list, LetterCounter("ram nag"))))
+
+    lc = LetterCounter("anagram anagram")
+    lcaa = LetterCounter("aaaaaaaa")
+
+    s = solve(words_list, lc)
+    if input("Continue? "):
+        print('\n'.join([' '.join(str(w) for w in q) for q in s]), sep='\n')
+        print("Anagram count: ", len(s))
 
 main()
