@@ -1,5 +1,7 @@
 import string
 
+WORDS_FILE = "sowpods.txt"
+
 class LetterCounter(dict):
     """A counter for counting individual letter frequencies in a given word."""
 
@@ -8,11 +10,7 @@ class LetterCounter(dict):
     def __init__(self, word):
         if type(word) == str:
             word = word.lower()
-            for letter in word:
-                try:
-                    self[letter] += 1
-                except KeyError:
-                    pass
+            set(map(self.inc, word))
         elif type(word) == LetterCounter:
             for l in LetterCounter.LETTERS:
                 self[l] = word[l]
@@ -30,7 +28,7 @@ class LetterCounter(dict):
 
     def __eq__(self, other):
         if type(other) == type(self):
-            return all(self[l] == other[l] for l in LetterCounter.LETTERS)
+            return all(self[l] == other[l] for l in other)
         elif type(other) == Word:
             return self == other.counter
         else:
@@ -38,7 +36,7 @@ class LetterCounter(dict):
 
     def __ne__(self, other):
         if type(other) == type(self):
-            return any(self[l] != other[l] for l in LetterCounter.LETTERS)
+            return any(self[l] != other[l] for l in other)
         elif type(other) == Word:
             return self != other.counter
         else:
@@ -54,7 +52,7 @@ class LetterCounter(dict):
     
     def __le__(self, other):
         if type(other) == type(self):
-            return all(self[l] <= other[l] for l in LetterCounter.LETTERS)
+            return all(self[l] <= other[l] for l in other)
         elif type(other) == Word:
             return self <= other.counter
         else:
@@ -70,7 +68,7 @@ class LetterCounter(dict):
     
     def __ge__(self, other):
         if type(other) == type(self):
-            return all(self[l] >= other[l] for l in LetterCounter.LETTERS)
+            return all(self[l] >= other[l] for l in other)
         elif type(other) == Word:
             return self >= other.counter
         else:
@@ -127,6 +125,9 @@ class LetterCounter(dict):
     def __bool__(self):
         return any(self[l] for l in LetterCounter.LETTERS)
 
+    def contains_word(self, word):
+        return self >= word
+
     def clone(self):
         return LetterCounter(self)
     
@@ -134,6 +135,12 @@ class LetterCounter(dict):
         for key in self:
             for i in range(self[key]):
                 yield key
+
+    def inc(self, key):
+        try:
+            self[key] += 1
+        except KeyError:
+            pass
 
     def subtract(self, other):
         for key in other:
@@ -172,10 +179,12 @@ class Word:
         return self.counter != other.counter
 
 def prune(words, letter_pool):
-    words = [word for word in words if word <= letter_pool]
+    words = list(filter(letter_pool.contains_word, words))
+    #words = [word for word in words if word <= letter_pool]
     return words
 
-def solve(words, letter_pool):
+def solve(words, letter_pool, root=False):
+    ll = ''
     words = prune(words, letter_pool)
     if not letter_pool:
         return [[]]
@@ -187,14 +196,22 @@ def solve(words, letter_pool):
         witer = (w for w in words)
         anags = []
         for word in witer:
+            if root:
+                fl = str(word)[0]
+                if ll != fl:
+                    print('.', end='')
+                    ll = fl
+                
             #print("word: ", word)
             #print("words: ", list(words))
             #print("letters: ", letter_pool)
             s = solve(words, letter_pool - word)
+            words = words[1:]
             #print("s: ", s)
             if s:
                 #print("s is truthy")
-                anags += [[word] + l for l in s]
+                anags.extend([word]+l for l in s)
+                #anags += [[word] + l for l in s]]
                 #print("anags: ", anags)
             #else:
                 #print("s is falsey")
@@ -202,12 +219,12 @@ def solve(words, letter_pool):
                 #print("anags: ", anags)
         return anags
     
-def get_words():
+def get_words_test():
     return ["nag a RAM 123", "Anagram", "nag", "a", "ram", "mAr ", "gram"]
 
-def main():
-    words = get_words()
-    letters_dict = dict();
+def test():
+    words = get_words_test()
+    letters_dict = dict()
 
     for word in words:
         letters = Word(word)
@@ -232,5 +249,29 @@ def main():
     if input("Continue? "):
         print('\n'.join([' '.join(str(w) for w in q) for q in s]), sep='\n')
         print("Anagram count: ", len(s))
+
+def print_anags(anags):
+    print('\n'.join([' '.join(str(w) for w in l) for l in anags]), sep='\n')
+
+
+def get_words():
+    try:
+        file = open(WORDS_FILE)
+        words = [Word(word.strip()) for word in file if word.strip()]
+        return words
+    except IOError as e:
+        raise IOError from e
+
+def main():
+    words = get_words()
+    print(len(words), "words loaded.")
+    user_input = input("Enter a word or phrase: ")
+    while user_input:
+        letters = LetterCounter(user_input)
+        anags = solve(words, letters, True)
+        print(len(anags), "anagrams found.")
+        if(input("Display? (y/n):").lower() != 'n'):
+            print_anags(anags)
+        user_input = input("Enter a word or phrase: ")
 
 main()
