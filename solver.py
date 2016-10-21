@@ -178,9 +178,9 @@ def prune(words, letter_pool):
 def solve(words, letter_pool):
     words = prune(words, letter_pool)
     if not letter_pool:
-        return False
+        return [[]]
     elif not words:
-        return None
+        return False
     else:
         #print("words: ", list(words))
         #print("letters: ", letter_pool)
@@ -196,9 +196,9 @@ def solve(words, letter_pool):
                 #print("s is truthy")
                 anags += [[word] + l for l in s]
                 #print("anags: ", anags)
-            elif s is not None:
-                #print("s is not none")
-                anags += [[word]]
+            #else:
+                #print("s is falsey")
+                #anags += [[word]]
                 #print("anags: ", anags)
         return anags
     
@@ -216,12 +216,12 @@ def main():
     words_list = letters_dict.values()
 
     print(letters_dict)
-    print(letters_dict["Anagram"] == letters_dict["nag a RAM 123"])
-    print(letters_dict["Anagram"] <= letters_dict["nag a RAM 123"])
-    print(letters_dict["Anagram"] < letters_dict["nag a RAM 123"])
-    print(letters_dict["nag"] <= letters_dict["nag a RAM 123"])
-    print(letters_dict["nag"] < letters_dict["nag a RAM 123"])
-    print(letters_dict["Anagram"] <= letters_dict["nag"])
+    print("T", letters_dict["Anagram"] == letters_dict["nag a RAM 123"])
+    print("T", letters_dict["Anagram"] <= letters_dict["nag a RAM 123"])
+    print("F", letters_dict["Anagram"] < letters_dict["nag a RAM 123"])
+    print("T", letters_dict["nag"] <= letters_dict["nag a RAM 123"])
+    print("T", letters_dict["nag"] < letters_dict["nag a RAM 123"])
+    print("F", letters_dict["Anagram"] <= letters_dict["nag"])
 
     print(list(prune(words_list, LetterCounter("ram nag"))))
 
