@@ -1,19 +1,24 @@
 import string
+from collections import Counter
 
 WORDS_FILE = "sowpods.txt"
+WORDS = None
+SQL_TABLE = "Words"
+SQL_INSERT = "INSERT INTO {}\nVALUES ('{}',{})".format(SQL_TABLE,"{word}","{}")
 
-class LetterCounter(dict):
+class LetterCounter(Counter):
     """A counter for counting individual letter frequencies in a given word."""
 
-    LETTERS = frozenset(string.ascii_lowercase)
+    LETTERS = tuple(string.ascii_lowercase)
 
     def __init__(self, word):
         if type(word) == str:
-            word = word.lower()
-            set(map(self.inc, word))
+            word = filter(str.isalpha, word.lower())
+            super().__init__(word)
         elif type(word) == LetterCounter:
-            for l in LetterCounter.LETTERS:
-                self[l] = word[l]
+            super().__init__(word)
+        elif type(word) == Counter:
+            super().__init__(word)
         else:
             raise TypeError(word)
 
@@ -23,74 +28,30 @@ class LetterCounter(dict):
         else:
             raise KeyError(key)
         
-    def __repr__(self):
+    def __str__(self):
         return ''.join(sorted(self.elements()))
 
     def __eq__(self, other):
-        if type(other) == type(self):
-            return all(self[l] == other[l] for l in other)
+        if type(other) == LetterCounter:
+            return self.items() == other.items()
         elif type(other) == Word:
             return self == other.counter
         else:
             return NotImplemented
-
-    def __ne__(self, other):
-        if type(other) == type(self):
-            return any(self[l] != other[l] for l in other)
-        elif type(other) == Word:
-            return self != other.counter
-        else:
-            return NotImplemented
-
-    def __lt__(self, other):
-        if type(other) == type(self):
-            return self <= other and self != other
-        elif type(other) == Word:
-            return self < other.counter
-        else:
-            return NotImplemented
     
     def __le__(self, other):
-        if type(other) == type(self):
+        if type(other) == LetterCounter:
             return all(self[l] <= other[l] for l in other)
         elif type(other) == Word:
             return self <= other.counter
         else:
             return NotImplemented
-
-    def __gt__(self, other):
-        if type(other) == type(self):
-            return self > other and self != other
-        elif type(other) == Word:
-            return self > other.counter
-        else:
-            return NotImplemented
     
     def __ge__(self, other):
-        if type(other) == type(self):
+        if type(other) == LetterCounter:
             return all(self[l] >= other[l] for l in other)
         elif type(other) == Word:
             return self >= other.counter
-        else:
-            return NotImplemented
-
-    def __add__(self, other):
-        clone = self.clone()
-        clone += other
-        return clone
-
-    def __radd__(self, other):
-        return self + other
-
-    def __iadd__(self, other):
-        if type(other) == LetterCounter:
-            for l in other:
-                self[l] += other[l]
-            return self
-        elif type(other) == str:
-            for l in other:
-                self[l] += 1
-            return self
         else:
             return NotImplemented
 
@@ -98,6 +59,7 @@ class LetterCounter(dict):
         if type(other) == LetterCounter:
             clone = self.clone()
             clone -= other
+            #clone.subtract(other)
             return clone
         elif type(other) == Word:
             return self - other.counter
@@ -123,18 +85,24 @@ class LetterCounter(dict):
             return NotImplemented
 
     def __bool__(self):
-        return any(self[l] for l in LetterCounter.LETTERS)
+        return any(self)
 
     def contains_word(self, word):
-        return self >= word
+        if type(word) == Word:
+            try:
+                return any(self - word.counter)
+            except ValueError:
+                return (self == word.counter)
+        else:
+            return bool(self - word) or (self == word)
 
     def clone(self):
         return LetterCounter(self)
     
-    def elements(self):
-        for key in self:
-            for i in range(self[key]):
-                yield key
+    #def elements(self):
+    #    for key in self:
+    #        for i in range(self[key]):
+    #            yield key
 
     def inc(self, key):
         try:
@@ -142,9 +110,12 @@ class LetterCounter(dict):
         except KeyError:
             pass
 
-    def subtract(self, other):
-        for key in other:
-            self[key] -= other[key]
+    def sql_values(self):
+        return (self[l] for l in LetterCounter.LETTERS)
+
+    #def subtract(self, other):
+    #    for key in other:
+    #        self[key] -= other[key]
 
 
 class Word:
@@ -152,50 +123,47 @@ class Word:
     def __init__(self, word):
         if type(word) != str:
             raise TypeError(word)
-        self.word = str(word)
-        self.counter = LetterCounter(word.lower())
+        self.word = word
+        self.hashed = hash(self.word)
+        self.counter = LetterCounter(self.word)
         
     def __repr__(self):
         return self.word
 
-    def __lt__(self, other):
-        if type(other) != type(self):
-            return NotImplemented
-        return self.counter < other.counter
+    def __len__(self):
+        return len(self.word)
 
-    def __le__(self, other):
-        if type(other) != type(self):
-            return NotImplemented
-        return self.counter <= other.counter
+    def __hash__(self):
+        return self.hashed
 
-    def __eq__(self, other):
-        if type(other) != type(self):
-            return NotImplemented
-        return self.counter == other.counter
+    def getfreq(self, key):
+        return self.counter(key)
 
-    def __ne__(self, other):
-        if type(other) != type(self):
-            return NotImplemented
-        return self.counter != other.counter
+    def sqlize(self):
+        return SQL_INSERT.format(','.join(map(str,self.counter.sql_values())), word=self.word)
 
 def prune(words, letter_pool):
     words = list(filter(letter_pool.contains_word, words))
-    #words = [word for word in words if word <= letter_pool]
     return words
 
+deadends = []
+
 def solve(words, letter_pool, root=False):
+    global deadends
     ll = ''
-    words = prune(words, letter_pool)
     if not letter_pool:
         return [[]]
-    elif not words:
+    words = prune(words, letter_pool)
+    if not words:
+        deadends.append(letter_pool)
         return False
     else:
         #print("words: ", list(words))
         #print("letters: ", letter_pool)
-        witer = (w for w in words)
+        #witer = iter(words)
         anags = []
-        for word in witer:
+        while words:
+            word = words[0]
             if root:
                 fl = str(word)[0]
                 if ll != fl:
@@ -206,11 +174,11 @@ def solve(words, letter_pool, root=False):
             #print("words: ", list(words))
             #print("letters: ", letter_pool)
             s = solve(words, letter_pool - word)
-            words = words[1:]
+            words.pop(0)
             #print("s: ", s)
             if s:
                 #print("s is truthy")
-                anags.extend([word]+l for l in s)
+                anags.extend(map([word].__add__, s))
                 #anags += [[word] + l for l in s]]
                 #print("anags: ", anags)
             #else:
@@ -251,16 +219,23 @@ def test():
         print("Anagram count: ", len(s))
 
 def print_anags(anags):
-    print('\n'.join([' '.join(str(w) for w in l) for l in anags]), sep='\n')
+    anags = sorted(anags, key=len)
+    for anag in anags:
+        print(' '.join(map(str,anag)))
+    #print('\n'.join([' '.join(map(str,l)) for l in anags]), sep='\n')
 
 
 def get_words():
-    try:
-        file = open(WORDS_FILE)
-        words = [Word(word.strip()) for word in file if word.strip()]
-        return words
-    except IOError as e:
-        raise IOError from e
+    global WORDS
+    if WORDS is not None:
+        return WORDS
+    else:
+        try:
+            file = open(WORDS_FILE)
+            WORDS = tuple(map(Word, filter(len, map(str.strip, file))))
+            return WORDS
+        except IOError as e:
+            raise IOError from e
 
 def main():
     words = get_words()
