@@ -3,6 +3,8 @@ from collections import Counter
 
 WORDS_FILE = "sowpods.txt"
 WORDS = None
+DB_URL = "nagaramjet-db.czaaw1lusahr.us-east-1.rds.amazonaws.com"
+DB_PORT = 3306
 SQL_TABLE = "Words"
 SQL_INSERT = "INSERT INTO {}\nVALUES ('{}',{})".format(SQL_TABLE,"{word}","{}")
 
