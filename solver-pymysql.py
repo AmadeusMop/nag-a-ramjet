@@ -185,7 +185,7 @@ def solve(words, letter_pool, root=False):
             if root:
                 count += 1
                 if not count % ((len(words)//10) + 1):
-                    print('.',end='')
+                    print('.',end='',flush=True)
         return anags
     
 def get_words_test():
@@ -280,7 +280,7 @@ def main():
         words = get_words_from_db(letters,connection)
         print("Query successful. ({} words found)".format(len(words)))
         time.sleep(0.05)
-        print("Searching for anagrams", end='')
+        print("Searching for anagrams", end='', flush=True)
         anags = solve(words, letters, True)
         print(len(anags), "anagrams found.")
         if(input("Display? (y/n): ").lower() != 'n'):
