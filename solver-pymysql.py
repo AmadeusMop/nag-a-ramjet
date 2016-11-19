@@ -79,16 +79,16 @@ class LetterCounter(Counter):
         if type(other) == LetterCounter:
             for l in other:
                 self[l] -= other[l]
-                if self[l] < 0:
-                    raise ValueError("Negative count occurred in __isub__() call. \nOffending parameters: " + str(self) +" (self), " + str(other) + " (other).")
+                #if self[l] < 0:
+                #    raise ValueError("Negative count occurred in __isub__() call. \nOffending parameters: " + str(self) +" (self), " + str(other) + " (other).")
             return self
         elif type(other) == Word:
             self -= other.counter
         elif type(other) == str:
             for l in other:
                 self[l] -= 1
-                if self[l] < 0:
-                    raise ValueError("Negative count occurred in __isub__() call. \nOffending parameters: " + str(self) +" (self), " + str(other) + " (other).")
+                #if self[l] < 0:
+                #    raise ValueError("Negative count occurred in __isub__() call. \nOffending parameters: " + str(self) +" (self), " + str(other) + " (other).")
             return self
         else:
             return NotImplemented
@@ -112,7 +112,7 @@ class LetterCounter(Counter):
             return all(self[l] >= word[l] for l in word)
 
     def clone(self):
-        return LetterCounter(self)
+        return LetterCounter(''.join(self.elements()))
     
     #def elements(self):
     #    for key in self:
@@ -150,7 +150,11 @@ class Word:
         return len(self.word)
 
     def __hash__(self):
-        return self.hashed
+        return hash(str(self.counter))
+        #return self.hashed
+
+    def __eq__(self,other):
+        return hash(self) == hash(other)
 
     def getfreq(self, key):
         return self.counter(key)
@@ -168,6 +172,7 @@ deadends = []
 def solve(words, letter_pool, root=False):
     if root:
         count = 0
+        words = sorted(words,key=len,reverse=True)
     #global deadends
     if not letter_pool:
         return [[]]
@@ -176,15 +181,13 @@ def solve(words, letter_pool, root=False):
         return False
     else:
         anags = []
-        while words:
-            word = words[0]
-            s = solve(words, letter_pool - word)
-            words.pop(0)
+        for i in range(len(words)):
+            word = words[i]
+            s = solve(words[i:], letter_pool - word)
             if s:
                 anags.extend(map([word].__add__, s))
             if root:
-                count += 1
-                if not count % ((len(words)//10) + 1):
+                if not i % ((len(words)//10)+1):
                     print('.',end='',flush=True)
         return anags
     
